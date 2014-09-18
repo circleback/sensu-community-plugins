@@ -11,11 +11,22 @@ class HipChatNotif < Sensu::Handler
     @event['client']['name'] + '/' + @event['check']['name']
   end
 
+  def build_rooms_list
+    rooms = [settings['hipchat']['room']]
+    if settings['hipchat'].has_key?('subscriptions')
+      @event['check']['subscribers'].each do |sub|
+        if settings['hipchat']['subscriptions'].has_key?(sub)
+          mail_to << settings['hipchat']['subscriptions'][sub]['room']
+        end
+      end
+    end
+    rooms
+  end
+
   def handle
     apiversion = settings["hipchat"]["apiversion"] || 'v1'
     proxy_url = settings["hipchat"]["proxy_url"]
     hipchatmsg = HipChat::Client.new(settings["hipchat"]["apikey"], :api_version => apiversion, :http_proxy => proxy_url)
-    room = settings["hipchat"]["room"]
     from = settings["hipchat"]["from"] || 'Sensu'
 
     message = @event['check']['notification'] || @event['check']['output']
@@ -35,16 +46,19 @@ class HipChatNotif < Sensu::Handler
       end
     end
 
-    begin
-      timeout(3) do
-        if @event['action'].eql?("resolve")
-          hipchatmsg[room].send(from, "RESOLVED - [#{event_name}] - #{message}.", :color => 'green')
-        else
-          hipchatmsg[room].send(from, "ALERT - [#{event_name}] - #{message}.", :color => @event['check']['status'] == 1 ? 'yellow' : 'red', :notify => true)
+    build_rooms_list.each do |room|
+      begin
+        timeout(3) do
+          if @event['action'].eql?("resolve")
+
+            hipchatmsg[room].send(from, "RESOLVED - [#{event_name}] - #{message}.", :color => 'green')
+          else
+            hipchatmsg[room].send(from, "ALERT - [#{event_name}] - #{message}.", :color => @event['check']['status'] == 1 ? 'yellow' : 'red', :notify => true)
+          end
         end
+      rescue Timeout::Error
+        puts "hipchat -- timed out while attempting to message #{room}"
       end
-    rescue Timeout::Error
-      puts "hipchat -- timed out while attempting to message #{room}"
     end
   end
 
