@@ -31,7 +31,7 @@ class CheckFixHTTP < Sensu::Plugin::Check::CLI
     :short => '-t SECS',
     :long => '--timeout SECS',
     :proc => proc { |a| a.to_i },
-    :description => 'Set the timeout',
+    :description => 'Set the timeout (default, 15 sec)',
     :default => 15
 
   option :insecure,
@@ -54,14 +54,14 @@ class CheckFixHTTP < Sensu::Plugin::Check::CLI
     :short => '-w SEC',
     :long => '--wait SEC',
     :proc => proc { |a| a.to_i },
-    :description => 'Select another port',
+    :description => 'How long to wait before checking the fix (default, 5 sec)',
     :default => 5
 
   option :attempts,
     :short => '-a TIMES',
     :long => '--attempt TIMES',
     :proc => proc { |a| a.to_i },
-    :description => 'Attempt the fix this many times',
+    :description => 'Attempt the fix this many times (default, 1 times)',
     :default => 1
 
   option :cmd,
@@ -74,11 +74,10 @@ class CheckFixHTTP < Sensu::Plugin::Check::CLI
     :short => '-r CODE',
     :long => '--rcode CODE',
     :proc => proc { |a| a.to_i },
-    :description => 'HTTP response code to respond to',
+    :description => 'HTTP response code to respond to (default, 504)',
     :default => 504
 
-    def run
-
+  def run
     unless config[:url]
       unknown 'No URL specified'
     end
@@ -119,8 +118,9 @@ class CheckFixHTTP < Sensu::Plugin::Check::CLI
   def get_resource
     http = Net::HTTP.new(config[:host], config[:port])
 
-    if config[:ssl] && config[:insecure]
-      http.verify_mode = OpenSSL::SSL::VERIFY_NONE
+    if config[:ssl]
+      http.use_ssl = true
+      http.verify_mode = OpenSSL::SSL::VERIFY_NONE if config[:insecure]
     end
 
     req = Net::HTTP::Get.new(config[:request_uri])
@@ -129,6 +129,6 @@ class CheckFixHTTP < Sensu::Plugin::Check::CLI
       req.basic_auth config[:user], config[:password]
     end
 
-    return http.request(req)
+    http.request(req)
   end
 end
