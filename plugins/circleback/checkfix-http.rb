@@ -16,8 +16,7 @@
 
 require 'rubygems' if RUBY_VERSION < '1.9.0'
 require 'sensu-plugin/check/cli'
-require 'net/http'
-require 'net/https'
+require 'rest-client'
 
 class CheckFixHTTP < Sensu::Plugin::Check::CLI
 
@@ -86,18 +85,13 @@ class CheckFixHTTP < Sensu::Plugin::Check::CLI
       unknown 'No fix command specified'
     end
 
-    uri = URI.parse(config[:url])
-    config[:host] = uri.host
-    config[:port] = uri.port
-    config[:request_uri] = uri.request_uri
-    config[:ssl] = uri.scheme == 'https'
-    config[:port] ||= config[:ssl] ? 443 : 80
     res = nil
 
     config[:attempts].times do |attempt|
       begin
         timeout(config[:timeout]) do
-          res = get_resource
+          opts = config[:insecure] ? { verify_mode: OpenSSL::SSL::VERIFY_NONE } : {}
+          res = RestClient.get(config[:url], opts)
           if res.code == '504'
             puts system(config[:cmd])
             sleep config[:wait]
@@ -115,20 +109,4 @@ class CheckFixHTTP < Sensu::Plugin::Check::CLI
     critical "#{res.code}, Exhausted all attempts to fix issue" if res.code == '504'
   end
 
-  def get_resource
-    http = Net::HTTP.new(config[:host], config[:port])
-
-    if config[:ssl]
-      http.use_ssl = true
-      http.verify_mode = OpenSSL::SSL::VERIFY_NONE if config[:insecure]
-    end
-
-    req = Net::HTTP::Get.new(config[:request_uri])
-
-    if (config[:user] != nil && config[:password] != nil)
-      req.basic_auth config[:user], config[:password]
-    end
-
-    http.request(req)
-  end
 end
