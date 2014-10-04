@@ -52,11 +52,11 @@ class TypePerfMetric < Sensu::Plugin::Metric::CLI::Graphite
 	processes = get_processes("DubLabs.*.Api*")
 
     metrics = {
-		"task_srv_count" => processes.size
+		"api_srv_count" => processes.size
     }
 
 	processes.each_with_index do |name, idx|
-		metrics["task_srv_#{idx}"] = get_matrics_hash({
+		metrics["api_srv_#{idx}"] = get_matrics_hash({
 			pid:			"\\Process(#{name})\\ID Process",
 			proc_prc: 		"\\Process(#{name})\\% Processor Time",
 			user_prc: 		"\\Process(#{name})\\% User Time",
