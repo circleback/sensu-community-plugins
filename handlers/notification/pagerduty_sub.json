@@ -1,0 +1,10 @@
+{
+  "pagerduty": {
+    "api_key": "12345",
+    "subscriptions": {
+      "team_name": {
+        "api_key": 1234
+      }
+    }
+  }
+}
