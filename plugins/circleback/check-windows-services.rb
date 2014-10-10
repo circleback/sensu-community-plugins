@@ -39,14 +39,14 @@ class CheckWinServices < Sensu::Plugin::Check::CLI
 
   def run
     services =  WMI::Win32_Service.all.select {|s| s.name =~ /#{config[:service]}/i }
-    services =  services.delete_if {|s| s.start_mode = "Manual" } if config[:manual]
-    services =  services.delete_if {|s| s.start_mode = "Disabled" } if config[:disabled]
+    services =  services.delete_if {|s| s.start_mode == "Manual" } if config[:manual]
+    services =  services.delete_if {|s| s.start_mode == "Disabled" } if config[:disabled]
 
     states   = services.map { |s| s.state }
     total, good = states.count, states.count {|s| s == GOOD_STATE}
     critical "No \"#{config[:service]}\" service(s) found" if total == 0
 
-    message = "#{good} of #{total} \"#{config[:service]}\" service(s) are #{STATES[GOOD_STATE]}"
+    message = "#{good} of #{total} \"#{config[:service]}\" service(s) are #{GOOD_STATE}"
 
     ok       "#{message}" if states.all? {|s| s == GOOD_STATE}
     warning  "#{message}" if states.any? {|s| s == GOOD_STATE}
