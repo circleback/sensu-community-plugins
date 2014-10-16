@@ -18,19 +18,16 @@ class Pagerduty < Sensu::Handler
     @event['client']['name'] + '/' + @event['check']['name']
   end
 
-  def team_key
-    api_key = if settings['pagerduty']['subscribers']
-      common = (settings['pagerduty']['subscriptions'].keys & @event['check']['subscribers']).first
-      settings['pagerduty']['subscriptions'][common]['api_key'] if common
-    end
+  def api_key
+    env = @event['client']['tags']['env']
+    app = @event['client']['tags']['app']
 
-    api_key ||= settings['pagerduty']['api_key']
+    settings['pagerduty']["#{app}_#{env}"]['api_key'] rescue settings['pagerduty']['api_key']
   end
 
   def handle
     description = @event['check']['notification']
     description ||= [@event['client']['name'], @event['check']['name'], @event['check']['output']].join(' : ')
-    api_key = team_key
 
     begin
       timeout(10) do

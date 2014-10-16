@@ -1,0 +1,12 @@
+{
+  "pagerduty": {
+    "api_key": "12345",
+
+    "cbcore_qa" : {
+      "api_key": "12345"
+    },
+    "cbcore_prod" : {
+      "api_key": "12345"
+    }
+  }
+}
