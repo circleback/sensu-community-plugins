@@ -14,10 +14,10 @@
 
 require 'rubygems' if RUBY_VERSION < '1.9.0'
 require 'sensu-plugin/check/cli'
-require 'ruby-wmi'
+require 'win32ole'
 
 class CheckWinServices < Sensu::Plugin::Check::CLI
-
+  WMI = WIN32OLE.connect("winmgmts://")
   GOOD_STATE = "Running"
 
   option :service ,
@@ -29,7 +29,8 @@ class CheckWinServices < Sensu::Plugin::Check::CLI
     :description  => 'Ignore disabled services',
     :long         => '--disabled',
     :short        => '-d',
-    :boolean      => true
+    :boolean      => true,
+    :default      => true
 
   option :manual ,
     :description  => 'Ignore manual services',
@@ -38,18 +39,21 @@ class CheckWinServices < Sensu::Plugin::Check::CLI
     :boolean      => true
 
   def run
-    services =  WMI::Win32_Service.all.select {|s| s.name =~ /#{config[:service]}/i }
-    services =  services.delete_if {|s| s.start_mode == "Manual" } if config[:manual]
-    services =  services.delete_if {|s| s.start_mode == "Disabled" } if config[:disabled]
+    services = WMI.ExecQuery("Select * from Win32_Service where Name LIKE '%#{config[:service]}%'").each.to_a
+    orig_count    = services.count
+    services =  services.delete_if { |s| s.StartMode == "Manual" } if config[:manual]
+    services =  services.delete_if { |s| s.StartMode == "Disabled" } if config[:disabled]
 
-    states   = services.map { |s| s.state }
-    total, good = states.count, states.count {|s| s == GOOD_STATE}
+    states   = services.map { |s| s.State }
+    total, good = states.count, states.count { |s| s == GOOD_STATE }
+
+    ok "None running but not expected to run" if (total == 0) && orig_count > 0
     critical "No \"#{config[:service]}\" service(s) found" if total == 0
 
     message = "#{good} of #{total} \"#{config[:service]}\" service(s) are #{GOOD_STATE}"
 
-    ok       "#{message}" if states.all? {|s| s == GOOD_STATE}
-    warning  "#{message}" if states.any? {|s| s == GOOD_STATE}
+    ok       "#{message}" if states.all? { |s| s == GOOD_STATE }
+    warning  "#{message}" if states.any? { |s| s == GOOD_STATE }
     critical "#{message}"
   end
 end
