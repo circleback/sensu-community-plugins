@@ -31,7 +31,7 @@
 #
 # Requires the following Rubygems (`gem install $GEM`):
 #   - sensu-plugin
-#   - fog
+#   - aws-sdk
 #
 # Requires a Sensu configuration snippet:
 #   {
@@ -93,7 +93,7 @@
 require 'timeout'
 require 'rubygems' if RUBY_VERSION < '1.9.0'
 require 'sensu-handler'
-require 'fog'
+require 'aws-sdk'
 
 class Ec2Node < Sensu::Handler
 
@@ -104,10 +104,10 @@ class Ec2Node < Sensu::Handler
     id   = tags.fetch('instance_id') { nil }
     exit if id.nil?
 
-    node = get_ec2_node(id)
+    node = ec2.instances[id]
 
     if node
-      delete_sensu_client! unless get_valid_states.include?(node.state)
+      delete_sensu_client! unless get_valid_states.include?(node.status.to_s)
     else
       puts "[EC2 Node] #{@event['client']['name']} appears not to exist in EC2"
       delete_sensu_client!
@@ -119,22 +119,15 @@ class Ec2Node < Sensu::Handler
     deletion_status(response)
   end
 
-  def get_ec2_node(id)
-    ec2.servers.find { |s| s.id == id }
-  end
-
   def ec2
-    @ec2 ||= begin
-      key = settings['aws']['access_key'] || ENV['AWS_ACCESS_KEY_ID']
-      secret = settings['aws']['secret_key'] || ENV['AWS_SECRET_ACCESS_KEY']
-      region = settings['aws']['region'] || ENV['EC2_REGION']
-      Fog::Compute.new(
-        provider: 'AWS',
-        aws_access_key_id: key,
-        aws_secret_access_key: secret,
+    key = settings['aws']['access_key'] || ENV['AWS_ACCESS_KEY_ID']
+    secret = settings['aws']['secret_key'] || ENV['AWS_SECRET_ACCESS_KEY']
+    region = settings['aws']['region'] || ENV['AWS_REGION']
+    @ec2 ||= AWS::EC2.new(
+        access_key_id: key,
+        secret_access_key: secret,
         region: region
-      )
-    end
+    )
   end
 
   def deletion_status(code)
