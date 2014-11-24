@@ -92,13 +92,11 @@ class CheckFixHTTP < Sensu::Plugin::Check::CLI
         timeout(config[:timeout]) do
           opts = config[:insecure] ? { verify_mode: OpenSSL::SSL::VERIFY_NONE } : {}
           res = RestClient.get(config[:url], opts)
-          if res.code == '504'
-            puts system(config[:cmd])
-            sleep config[:wait]
-          else
-            ok "#{res.code}, #{res.body.size} bytes"
-          end
+          ok "#{res.code}, #{res.body.size} bytes"
         end
+      rescue RestClient::GatewayTimeout, RestClient::ServiceUnavailable
+        puts system(config[:cmd])
+        sleep config[:wait]
       rescue Timeout::Error
         critical "Connection timed out"
       rescue => e
