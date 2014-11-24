@@ -86,6 +86,7 @@ class CheckFixHTTP < Sensu::Plugin::Check::CLI
     end
 
     res = nil
+    last_ex = nil
 
     config[:attempts].times do |attempt|
       begin
@@ -94,17 +95,18 @@ class CheckFixHTTP < Sensu::Plugin::Check::CLI
           res = RestClient.get(config[:url], opts)
           ok "#{res.code}, #{res.body.size} bytes"
         end
-      rescue RestClient::GatewayTimeout, RestClient::ServiceUnavailable
+      rescue RestClient::GatewayTimeout, RestClient::ServiceUnavailable  => e
         puts system(config[:cmd])
+        last_ex = e
         sleep config[:wait]
       rescue Timeout::Error
         critical "Connection timed out"
       rescue => e
-        critical "Connection error: #{e.message}"
+        critical "Connection error: #{e.message}, #{e.class}"
       end
     end
 
-    critical "#{res.code}, Exhausted all attempts to fix issue" if res.code == '504'
+    critical "#{last_ex.message}, Exhausted all attempts to fix issue"
   end
 
 end
