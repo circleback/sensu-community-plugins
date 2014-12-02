@@ -29,7 +29,7 @@ class CheckFixHTTP < Sensu::Plugin::Check::CLI
   option :timeout,
     :short => '-t SECS',
     :long => '--timeout SECS',
-    :proc => proc { |a| a.to_i },
+    :proc => proc(&:to_i),
     :description => 'Set the timeout (default, 15 sec)',
     :default => 15
 
@@ -52,14 +52,14 @@ class CheckFixHTTP < Sensu::Plugin::Check::CLI
   option :wait,
     :short => '-w SEC',
     :long => '--wait SEC',
-    :proc => proc { |a| a.to_i },
+    :proc => proc(&:to_i),
     :description => 'How long to wait before checking the fix (default, 5 sec)',
     :default => 5
 
   option :attempts,
     :short => '-a TIMES',
     :long => '--attempt TIMES',
-    :proc => proc { |a| a.to_i },
+    :proc => proc(&:to_i),
     :description => 'Attempt the fix this many times (default, 1 times)',
     :default => 1
 
@@ -72,7 +72,7 @@ class CheckFixHTTP < Sensu::Plugin::Check::CLI
   option :res_code,
     :short => '-r CODE',
     :long => '--rcode CODE',
-    :proc => proc { |a| a.to_i },
+    :proc => proc(&:to_i),
     :description => 'HTTP response code to respond to (default, 504)',
     :default => 504
 
@@ -88,19 +88,19 @@ class CheckFixHTTP < Sensu::Plugin::Check::CLI
     res = nil
     last_ex = nil
 
-    config[:attempts].times do |attempt|
+    config[:attempts].times do
       begin
         timeout(config[:timeout]) do
           opts = config[:insecure] ? { verify_mode: OpenSSL::SSL::VERIFY_NONE } : {}
           res = RestClient.get(config[:url], opts)
           ok "#{res.code}, #{res.body.size} bytes"
         end
-      rescue RestClient::GatewayTimeout, RestClient::ServiceUnavailable  => e
+      rescue RestClient::GatewayTimeout,
+             RestClient::ServiceUnavailable,
+             Timeout::Error => e
         puts system(config[:cmd])
         last_ex = e
         sleep config[:wait]
-      rescue Timeout::Error
-        critical "Connection timed out"
       rescue => e
         critical "Connection error: #{e.message}, #{e.class}"
       end
