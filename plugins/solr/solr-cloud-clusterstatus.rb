@@ -14,7 +14,7 @@
 
 require 'rubygems' if RUBY_VERSION < '1.9.0'
 require 'sensu-plugin/check/cli'
-require 'zk'
+require 'rest-client'
 require 'json'
 
 CRITICAL_STATES = %w{ no_leaders bad_leaders down gone recovery_failed }
@@ -22,38 +22,35 @@ WARNING_STATES  = %w{ recovering }
 GOOD_STATES     = %w{ active }
 
 class CheckSolrCloudZK < Sensu::Plugin::Check::CLI
-  option :zk,
-         :description => "ZooKeeper connection string",
-         :short => '-z ZK_CS',
-         :long => '--zk ZK_CS',
-         :require => true
+  option :collection,
+         :description => "Solr Collection to check",
+         :short => '-c COLLECTION',
+         :long => '--collection COLLECTION',
+         :required => true
 
-  def zk_connection(zookeeper)
-    puts "Connecting to #{zookeeper}" if $DEBUG
-    begin
-      zk = ZK.new(config[:zk])
-    rescue => e
-      critical "Exception #{e.class} - #{e.message}"
-    end
-    return zk
-  end
+  option :url,
+         :description => "Solr URL",
+         :short => '-u URL',
+         :long => '--url URL',
+         :require => false,
+         :default => 'http://localhost:8983/solr'
 
-  def process(collections)
+  def process(output)
     states = {'bad_leaders' => [], 'no_leaders' => []}
+    collection = config[:collection]
+    shards = output['cluster']['collections'][collection]['shards']
 
-    puts "Collections: #{clusterstate.keys.join(' ')}" if $DEBUG
-    collections.each do |collection, shards|
-      shards.each do |shard, shard_data|
-        leader_count = shard_data['replicas'].select {|n, d| d['leader'] == 'true' }
-        states['no_leaders'] << "#{collection}-#{shard}" if leader_count.count <= 0
+    shards.each do |shard, shard_data|
+      leader_count = shard_data['replicas'].select {|n, d| d['leader'] == 'true' }
+      states['no_leaders'] << "#{collection}-#{shard}" if leader_count.count <= 0
 
-        shard_data['replicas'].each do |name, data|
-          states['bad_leaders']  << name if (data['state'] != 'active' && data['leader'] == 'true')
-          states[data['state']] ||= Array.new
-          states[data['state']] << name
-        end
+      shard_data['replicas'].each do |name, data|
+        states['bad_leaders']  << name if (data['state'] != 'active' && data['leader'] == 'true')
+        states[data['state']] ||= Array.new
+        states[data['state']] << name
       end
     end
+
     CRITICAL_STATES.each do |state|
       next unless states.fetch(state) {[]}.count > 0
       critical "#{state.split('_').map {|s| s.capitalize}.join(' ')} Nodes: #{states[state].join(', ')}"
@@ -72,17 +69,13 @@ class CheckSolrCloudZK < Sensu::Plugin::Check::CLI
 
   def run
     begin
-      zk      = zk_connection(config[:zk])
-      json, _ = zk.get('/clusterstate.json')
+      puts status_url = "#{config[:url]}/admin/collections?action=CLUSTERSTATUS&wt=json&collection=#{config[:collection]}"
+      output, _ = RestClient.get(status_url)
 
-      process JSON.parse(json)
-
-      zk.close!
+      process JSON.parse(output)
       ok
     rescue => e
       critical "Solr ZK check failed: #{e.message}"
-    ensure
-      zk.close! if zk
     end
   end
 end
