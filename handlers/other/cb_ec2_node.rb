@@ -100,9 +100,12 @@ class Ec2Node < Sensu::Handler
   def filter; end
 
   def handle
-    tags = @event['client'].fetch('tags') { {} }
-    id   = tags.fetch('instance_id') { nil }
-    exit if id.nil?
+    id = @event['client']['instance_id']
+
+    if id.nil?
+      puts "[EC2 Node] Did not find ID for client: #{@event['client']}"
+      exit
+    end
 
     node = ec2.instances[id]
 
@@ -115,8 +118,9 @@ class Ec2Node < Sensu::Handler
   end
 
   def delete_sensu_client!
-    response = api_request(:DELETE, '/clients/' + @event['client']['name']).code
-    deletion_status(response)
+    client = @event['client']['name']
+    response = api_request(:DELETE, '/clients/' + client).code
+    deletion_status(response, client)
   end
 
   def ec2
@@ -130,7 +134,7 @@ class Ec2Node < Sensu::Handler
     )
   end
 
-  def deletion_status(code)
+  def deletion_status(code, node)
     case code
     when '202'
       puts "[EC2 Node] 202: Successfully deleted Sensu client: #{node}"
@@ -139,7 +143,7 @@ class Ec2Node < Sensu::Handler
     when '500'
       puts "[EC2 Node] 500: Miscellaneous error when deleting #{node}"
     else
-      puts "[EC2 Node] #{res}: Completely unsure of what happened!"
+      puts "[EC2 Node] #{code}: Completely unsure of what happened!"
     end
   end
 
