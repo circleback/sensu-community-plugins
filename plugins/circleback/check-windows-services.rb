@@ -39,7 +39,11 @@ class CheckWinServices < Sensu::Plugin::Check::CLI
     :boolean      => true
 
   def run
-    services = WMI.ExecQuery("Select * from Win32_Service where Name LIKE '%#{config[:service]}%'").each.to_a
+    services = WMI.ExecQuery("Select * from Win32_Service ").each.to_a
+    critical "WMI service not returning results, restart service" if services.count == 0
+
+    services.select! { |s| s.Name =~ Regexp.new(config[:service], Regexp::IGNORECASE) }
+
     orig_count    = services.count
     services =  services.delete_if { |s| s.StartMode == "Manual" } if config[:manual]
     services =  services.delete_if { |s| s.StartMode == "Disabled" } if config[:disabled]
