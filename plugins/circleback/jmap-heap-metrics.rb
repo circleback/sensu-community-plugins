@@ -54,7 +54,7 @@ class JmapHeapMetric < Sensu::Plugin::Metric::CLI::Graphite
     metrics.each do |keys, value|
       output [config[:scheme], keys].flatten.join("."), value, timestamp
     end
-
+    ok
   end
 
 end
