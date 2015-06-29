@@ -25,6 +25,7 @@ require 'rubygems' if RUBY_VERSION < '1.9.0'
 require 'sensu-plugin/metric/cli'
 require 'rest-client'
 require 'json'
+require 'pp'
 
 module Enumerable
   def flatten_with_path(parent_prefix = nil)
@@ -104,10 +105,12 @@ class JSON2Graphite < Sensu::Plugin::Metric::CLI::Graphite
   def run
     json_hash = get_url_json(config[:url])
     json_hash = fetch(json_hash, config[:object_path]) if config[:object_path]
-    json_hash.flatten_with_path(config[:scheme]).each do |metric, value|
+    json_hash = json_hash.flatten_with_path(config[:scheme])
+    
+    json_hash.each do |metric, value|
       metric_name = underscore(metric)
-      unless metric_name =~ /#{Regexp.quote(config[:ignore])}/i
-        ok metric_name, value.to_i if value.kind_of?(Numeric)
+      if config[:ignore] && !(metric_name =~ /#{Regexp.quote(config[:ignore])}/i)
+        output metric_name, value.to_i if value.kind_of?(Numeric)
       end
     end
     ok
