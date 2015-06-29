@@ -20,8 +20,8 @@ class Pagerduty < Sensu::Handler
 
   def api_key
     return settings['pagerduty'][@event['check']['pagerduty_override']]['api_key'] if @event['check']['pagerduty_override']
-    env = @event['client']['tags']['env']
-    app = @event['client']['tags']['app']
+    env = @event['client']['env'] || @event['client']['tags']['env']
+    app = @event['client']['app'] || @event['client']['tags']['app']
 
     settings['pagerduty']["#{app}_#{env}"]['api_key'] rescue settings['pagerduty']['api_key']
   end

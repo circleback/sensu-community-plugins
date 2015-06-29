@@ -25,9 +25,15 @@ class Mailer < Sensu::Handler
     @event['action'].eql?('resolve') ? 'RESOLVED' : 'ALERT'
   end
 
+  def mail_to
+    return @event['check']['email_override'] if @event['check']['email_override']
+    settings['mailer-ses']['mail_to_teams'][@event['client']['app']] ||
+    settings['mailer-ses']['mail_to']
+  end
+
   def handle
     params = {
-      mail_to: settings['mailer-ses']['mail_to'],
+      mail_to: mail_to,
       mail_from: settings['mailer-ses']['mail_from'],
       aws_access_key: settings['mailer-ses']['aws_access_key'],
       aws_secret_key: settings['mailer-ses']['aws_secret_key'],
